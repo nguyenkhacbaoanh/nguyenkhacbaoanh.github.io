@@ -2,7 +2,8 @@
   "name": "v4",
   "description": "Personal Website V4",
   "version": "1.0.0",
-  "author": "Brittany Chiang <brittany.chiang@gmail.com>",
+  "author": "Anh Nguyen <khacbaoanh.nguyen@gmail.com>",
+  "homepage": "https://nguyenkhacbaoanh.github.io",
   "repository": {
     "type": "git",
     "url": "https://github.com/bchiang7/v4"
@@ -13,6 +14,7 @@
   "license": "MIT",
   "browserslist": "> 0.25%, not dead",
   "scripts": {
+    "deploy": "gatsby build && gh-pages -d public -b main",
     "build": "gatsby build",
     "develop": "gatsby develop",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
