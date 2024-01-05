@@ -11,6 +11,8 @@ tags:
 
 ![API Architecture](../../featured/api_informatica/api_architecture.png 'architecture')
 
+Api heberge sur 2 zone de securite different, c'est pour ca, nous avons 2 workers qui vont deployer differenement, un sur docker et un autre sur la VM Cloud (qui necessite d'avoir l'ouverture de route sur GBIS)
+
 Api a ete developpe par Python version 3.6 en utilisant des libraries: `requirements.txt`.
 
 ```text
@@ -83,6 +85,56 @@ Structuration du projet:
 
 ## APIs
 
+This APIs utilise asynchro technique pour recuperer le resultat sur les task qui dure longtemps en generale, une fois le job a ete submit sur APIs, les playbooks ansible vont jouer des commandlines sur des servers specifiques, ca va prendre de deux a 5 minutes, ca depends la bande passante du reseau.
+
+```python UUID.py
+from flask import Flask,jsonify, g
+from datetime import datetime, timedelta
+from flask_restplus import Namespace, Resource, fields, marshal
+from app.core.cloud_permission import check_cloud_permission
+from app.core.decorators import DecoratedResource
+#from app.app_file import app, redis_cache
+# from flask_sg_datalake import DatalakeRecord
+from app.core.utils import transaction_correlation_id as correlation_id
+#import redis_cache
+from flask_sg_datalake import DatalakeRecord
+import logging
+namespace = Namespace('UUID', description='Get async output here')
+dl_logger = logging.getLogger('datalake')
+
+@namespace.route("/<uuid>")
+class Job(Resource):
+    """Get the job"""
+
+    @namespace.doc(description="get your job result")
+    def get(self, uuid):
+        from app.app_file import redis_cache
+        if redis_cache.get(uuid) is None:
+            task_not_exist = {
+                               "id": uuid,
+                               "details": "The task does not exist"}
+            return task_not_exist, 404
+        else:
+            from app import celery
+            return_celery_obj = celery.AsyncResult(uuid)
+            default_result = {
+                          "status": return_celery_obj.status,
+                          "id": return_celery_obj.id,
+                          "details": "The task is being executed,may take longer than 2mins. please click on try it out again"}
+            if return_celery_obj.status != "PENDING":
+                redis_cache.delete(uuid)
+            if return_celery_obj.ready():
+                default_result["details"] = return_celery_obj.result
+                g.dl_logger.info(DatalakeRecord(correlation_id, event="response", response_http_code=200,
+                                                response_message=return_celery_obj.id, details=return_celery_obj.result))
+                return default_result, 200
+            else:
+                g.dl_logger.info(DatalakeRecord(correlation_id, event="response", response_http_code=200,
+                                                response_message=return_celery_obj.id,
+                                                details=return_celery_obj.result))
+                return default_result, 200
+```
+
 Some examples of Api methods
 
 ```python informatica.py
@@ -131,7 +183,7 @@ def handle_invalid_usage(error):
 
 #List IS
 @namespace.route("/trigrams/<trigram>/domains/<domain_name>/integration-services/")
-@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx.fr.world.socgen')
+@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx')
 @namespace.param('Environment', 'your application environment ex: Development, Homologation, Production')
 @namespace.doc(security=[{'oauth2_implicit': ['profile', 'itaas', 'openid']}])
 class list_Instance(DecoratedResource):
@@ -152,7 +204,7 @@ class list_Instance(DecoratedResource):
         * domain_name:
             domain present in requested server.Ex: AAA_XXX_X00
         * domain_hostname:
-            use valid SVCToolname.EX: xxx.fr.world.socgen
+            use valid SVCToolname.EX: xxx
         * environment:
             use environment like Development, Homologation and Production.
         <br/><br/>"""
@@ -171,7 +223,7 @@ class list_Instance(DecoratedResource):
         if not hostname.endswith(".socgen"):
             g.dl_logger.error(DatalakeRecord(correlation_id, event="response", response_http_code=500,
                                              response_message="hostname invalid"))
-            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx.fr.world.socgen", 500)
+            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx", 500)
 
         from app.tasks.find_command import find_command
         task =find_command.apply_async(
@@ -212,7 +264,7 @@ class list_Instance(DecoratedResource):
 
 #Start/Stop IS
 @namespace.route("/trigrams/<trigram>/domains/<domain_name>/integration-services/<IS_name>")
-@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx.fr.world.socgen')
+@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx')
 @namespace.param('Environment', 'your application environment ex: Development, Homologation, Production')
 @namespace.doc(security=[{'oauth2_implicit': ['profile', 'itaas', 'openid']}])
 class put_Instance(DecoratedResource):
@@ -238,7 +290,7 @@ class put_Instance(DecoratedResource):
         * domain_name:
             domain present in requested server.Ex: AAA_XXX_X00
         * domain_hostname:
-            use valid SVCToolname.EX: xxx.fr.world.socgen
+            use valid SVCToolname.EX: xxx
         * environment:
             use environment like Development, Homologation and Production.
         """
@@ -265,7 +317,7 @@ class put_Instance(DecoratedResource):
         if not hostname.endswith(".socgen"):
             g.dl_logger.error(DatalakeRecord(correlation_id, event="response", response_http_code=500,
                                              response_message="hostname invalid"))
-            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx.fr.world.socgen", 500)
+            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx", 500)
         from app.tasks.find_command_IS import find_command_IS
         task =find_command_IS.apply_async(
             kwargs={'hostname': hostname,
@@ -308,7 +360,7 @@ class put_Instance(DecoratedResource):
 
 #list repository present in server
 @namespace.route("/trigrams/<trigram>/sessions/")
-@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx.fr.world.socgen')
+@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx')
 @namespace.param('Domain name', 'your domain name. ex: AAA_XXX_X00')
 @namespace.param('Environment', 'Your enviornment. ex: Development, Homologation, Production')
 #@namespace.param('Repository_name', 'repository name to see list ex: XXX_XXX_X01', required=True)
@@ -334,7 +386,7 @@ class kill_instance_list(DecoratedResource):
         * domain_name:
             domain present in requested server.Ex: AAA_XXX_X00
         * domain_hostname:
-            use valid SVCToolname.EX: xxx.fr.world.socgen
+            use valid SVCToolname.EX: xxx
         * environment:
             use environment like Development, Homologation and Production.
         <br/><br/>"""
@@ -357,7 +409,7 @@ class kill_instance_list(DecoratedResource):
         if not hostname.endswith(".socgen"):
             g.dl_logger.error(DatalakeRecord(correlation_id, event="response", response_http_code=500,
                                              response_message="hostname invalid"))
-            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx.fr.world.socgen", 500)
+            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx", 500)
 
         from app.tasks.list_repository import list_repository
         task =list_repository.apply_async(
@@ -397,7 +449,7 @@ class kill_instance_list(DecoratedResource):
 
 #List repository connection
 @namespace.route("/trigrams/<trigram>/sessions/<repo_name>")
-@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx.fr.world.socgen')
+@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx')
 @namespace.param('Domain name', 'your domain name. ex: AAA_XXX_X00')
 @namespace.param('Environment', 'Your enviornment. ex: Development, Homologation, Production')
 #@namespace.param('Repository_name', 'repository name to see list ex: XXX_XXX_X01', required=True)
@@ -425,7 +477,7 @@ class repository_list(DecoratedResource):
         * domain_name:
             domain present in requested server.Ex: AAA_XXX_X00
         * domain_hostname:
-            use valid SVCToolname.EX: xxx.fr.world.socgen
+            use valid SVCToolname.EX: xxx
         * environment:
             use environment like Development, Homologation and Production.
         <br/><br/>"""
@@ -449,7 +501,7 @@ class repository_list(DecoratedResource):
         if not hostname.endswith(".socgen"):
             g.dl_logger.error(DatalakeRecord(correlation_id, event="response", response_http_code=500,
                                              response_message="hostname invalid"))
-            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx.fr.world.socgen", 500)
+            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx", 500)
 
         from app.tasks.list_repository import list_repo_connection
         task =list_repo_connection.apply_async(
@@ -490,7 +542,7 @@ class repository_list(DecoratedResource):
 
 #Killsession using username
 @namespace.route("/trigrams/<trigram>/sessions/<username>")
-@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx.fr.world.socgen')
+@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx')
 @namespace.param('Domain name', 'your domain name. ex: AAA_XXX_X00')
 @namespace.param('Environment', 'Your enviornment. ex: Development, Homologation, Production')
 @namespace.param('Repository_name', 'repository name to see list ex: XXX_XXX_X01', required=True)
@@ -519,7 +571,7 @@ class kill_instance_user(DecoratedResource):
         * domain_name:
             domain present in requested server.Ex: AAA_XXX_X00
         * domain_hostname:
-            use valid SVCToolname.EX: xxx.fr.world.socgen
+            use valid SVCToolname.EX: xxx
         * environment:
             use environment like Development, Homologation and Production.
         <br/><br/>"""
@@ -539,7 +591,7 @@ class kill_instance_user(DecoratedResource):
         if not hostname.endswith(".socgen"):
             g.dl_logger.error(DatalakeRecord(correlation_id, event="response", response_http_code=500,
                                              response_message="hostname invalid"))
-            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx.fr.world.socgen", 500)
+            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx", 500)
 
         from app.tasks.kill_session import kill_session_user
         task = kill_session_user.apply_async(
@@ -583,7 +635,7 @@ class kill_instance_user(DecoratedResource):
 
 #Killsession using sessionID
 @namespace.route("/trigrams/<trigram>/sessions/<sessionID>")
-@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx.fr.world.socgen')
+@namespace.param('Domain Host name', 'your domain host name.Give SVCToolname ex: xxx')
 @namespace.param('Domain name', 'your domain name. ex: AAA_XXX_X00')
 @namespace.param('Environment', 'Your enviornment. ex: Development, Homologation, Production')
 @namespace.param('Repository_name', 'repository name to see list ex: XXX_XXX_X01', required=True)
@@ -611,7 +663,7 @@ class kill_instance_session(DecoratedResource):
         * domain_name:
             domain present in requested server.Ex: AAA_XXX_X00
         * domain_hostname:
-            use valid SVCToolname.EX: xxx.fr.world.socgen
+            use valid SVCToolname.EX: xxx
         * environment:
             use environment like Development, Homologation and Production.
         <br/><br/>"""
@@ -635,7 +687,7 @@ class kill_instance_session(DecoratedResource):
         if not hostname.endswith(".socgen"):
             g.dl_logger.error(DatalakeRecord(correlation_id, event="response", response_http_code=500,
                                              response_message="hostname invalid"))
-            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx.fr.world.socgen", 500)
+            raise InvalidUsage("hostname invalid. Use FQDN ex: xxx", 500)
 
         from app.tasks.kill_session import run_killsession_sessionID
         task =run_killsession_sessionID.apply_async(
@@ -704,4 +756,218 @@ def parsetoken():
     parser.add_argument('Repository_name', type=str)
     parser.add_argument('SessionID', type=int)
     return parser.parse_args()
+```
+
+## Swagger SG
+API doit etre conform au norm API chez Societe Generale
+
+on s'installe le swagger submodule de la SG
+
+```bash
+git submodule add -b templates https://xxxxxx/BeAPI/sg-swagger-ui.git swagger
+```
+
+client id doit etre creer manuellement via SG API market, en suite, on aura client name avec le client id:
+
+```bash
+export SWAGGER_UI_OAUTH_REALM='/'
+export SWAGGER_UI_OAUTH_APP_NAME='itaas'
+export SWAGGER_UI_OAUTH_CLIENT_ID='xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+```
+
+## RUN
+
+Cette application utilise le user generique afin de deployer l'API, assure que les variables environnement sont bien rempli sur `dev-env.sh` ou `prd-env.sh`
+
+```bash
+export USER="identification"
+export PASSWORD="password"
+```
+
+```bash
+gunicorn manage:app -c config/gunicorn_conf.py --timeout 350 --certfile=ssl/xxx.crt --keyfile=ssl/xxx.key &
+```
+
+pour lancer le celery worker:
+
+```bash
+celery flower -A app.celery worker1 --concurrency=2 --loglevel=INFO --port=5555 &
+```
+
+## DEPLOY
+
+On a utilise secrets service in kubernetes pour la partie SSL et les variables environnements.
+
+```bash
+kubectl create -f /code/ETLaaS_GCR_async/kube/secret-env.yml --namespace ns-xxx-xxxxx-dev-ssa
+```
+
+Docker local:
+```yml
+version: "3.1"
+services:
+  celery_worker:
+    image: etlaas:${BUILD_NUMBER}
+    depends_on:
+      - redis-master
+    command: bash -c "./celery_start.sh; sleep 2; tail -f /code/ETLaaS_GCR_async/error.log"
+    networks:
+      - network-l7-e2s-dev
+    deploy:
+      replicas: 2
+      labels:
+        - "com.docker.ucp.access.label=/Run/xxxx"
+        - "com.docker.ucp.access.owner=xxxx"
+    environment:
+      - DNSNAME=xxxx
+    env_file:
+      - run/dev-env.sh
+    secrets:
+      - source: xxxx.crt
+        target: xxxx.crt
+        mode: 0777
+      - source: xxxx.key
+        target: xxxx.key
+        mode: 0777
+      - source: e2s_vault_write_token
+        target: e2s_vault_write_token
+        mode: 0777
+      - source: e2s-dev-write-consul-ACL
+        target: e2s-dev-write-consul-ACL
+        mode: 0777
+      - source: LDAP_LOGIN
+        target: LDAP_LOGIN
+        mode: 0777
+      - source: LDAP_PASSWORD
+        target: LDAP_PASSWORD
+        mode: 0777
+      - source: private_key
+        target: private_key
+        uid: '1000'
+        gid: '1000'
+        mode: 0600
+
+  api:
+    image: etlaas:${BUILD_NUMBER}
+    depends_on:
+      - redis-master
+      - celery_worker
+    command: bash -c "./startup.sh; sleep 3; tail -f /code/ETLaaS_GCR_async/error.log"
+    networks:
+      - network-l7-e2s-dev
+    deploy:
+      replicas: 2
+      labels:
+        - "com.docker.ucp.access.label=/Run/xxxx"
+        - "com.docker.ucp.access.owner=xxxx"
+    environment:
+      - DNSNAME=etlaas-gcr
+
+    env_file:
+      - run/dev-env.sh
+    secrets:
+      - source: xxxx.crt
+        target: xxxx.crt
+        mode: 0777
+      - source: xxxx.key
+        target: xxxx.key
+        mode: 0777
+      - source: e2s_vault_write_token
+        target: e2s_vault_write_token
+        mode: 0777
+      - source: e2s-dev-write-consul-ACL
+        target: e2s-dev-write-consul-ACL
+        mode: 0777
+      - source: LDAP_LOGIN
+        target: LDAP_LOGIN
+        mode: 0777
+      - source: LDAP_PASSWORD
+        target: LDAP_PASSWORD
+        mode: 0777
+      - source: private_key
+        target: private_key
+        uid: '1000'
+        gid: '1000'
+        mode: 0600
+
+networks:
+  network-l7-e2s-dev:
+    external: true
+
+secrets:
+  xxxx.crt:
+    external: true
+  xxxx.key:
+    external: true
+  e2s_vault_write_token:
+    external: true
+  e2s-dev-write-consul-ACL:
+    external: true
+  LDAP_LOGIN:
+    external: true
+  LDAP_PASSWORD:
+    external: true
+  private_key:
+    external: true
+```
+Kubernetes:
+```bash kube-deploy.sh
+#redis deployment
+./kubectl create -f kube/redis/redis-deployment.yml --namespace ns-xxx-dev-ssa
+#redis service
+./kubectl create -f kube/redis/redis-svc.yml --namespace ns-xxx-dev-ssa
+#celery deployment
+./kubectl create -f kube/redis/celery-deployment.yml --namespace ns-xxx-dev-ssa
+#celery service
+./kubectl create -f kube/redis/celery-svc.yml --namespace ns-xxx-dev-ssa
+#application deployment
+./kubectl create -f kube/etlaas-deployment.yml --namespace ns-xxx-dev-ssa
+#application service
+./kubectl create -f kube/etlaas-svc.yml --namespace ns-xxx-dev-ssa
+#application ingress
+./kubectl create -f kube/etlaas-ingress.yml --namespace ns-xxx-dev-ssa
+```
+
+# CICD
+
+Pour la partie CICD, l'implementation de scripts Jenkinsfile sur Jenkins Instance avec le webhook de pull-resquest sur le repository
+
+```groovy Jenkinfile
+dockerNode(image: 'maven-ezweb-builder:3.3.9-jdk-1.8.0.121-node-9.5.0') {
+//Environment properties to build and releae application modules
+withEnv(['DOCKER_HOST=tcp://xxx:443',
+         'UCP_URL=https://xxx', 
+	 'DOCKER_TLS_VERIFY=1', 
+	 'DOCKER_CERT_PATH=/home/jenkins', 
+	 'UCP_credentialsId=UCP_Credentials']) {
+
+//Credentials to connect with docker services
+withCredentials([[$class: 'UsernamePasswordMultiBinding', 
+		credentialsId: "$UCP_credentialsId", 
+		usernameVariable: 'USER', 
+		passwordVariable: 'PASSWORD']]) {
+		    withCredentials([file(credentialsId: 'e2s_dev_svc-kube.yml', variable: 'KUBECONFIG')]){
+//fetching ucp certs for deployments 
+	sh '''AUTHTOKEN=$(curl -sk -d "{\\"username\\":\\"$USER\\",\\"password\\":\\"$PASSWORD\\"}" $UCP_URL/auth/login | jq -r .auth_token)
+    	curl -k -H "Authorization: Bearer $AUTHTOKEN" $UCP_URL/api/clientbundle -o $HOME/bundle.zip
+    	unzip -o $HOME/bundle.zip -d $HOME'''
+    	sh 'docker login --username=$USER  --password=$PASSWORD https://xxxx/'
+
+stage('GIT-CLONE') {
+    	git changelog: false, poll: false, url: 'https://xxx/GTS-PAS-MDW-APP/ETLaaS_GCR_async.git'
+		  env.GIT_COMMIT = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+	}
+stage('BUILD_IMAGE') {
+        sh """docker build -f dockers/ETLaaS_async/Dockerfile --tag etlaas:etlaas-kube --force-rm --no-cache .; docker push etlaas:etlaas-kube"""
+    
+    }
+stage('KUBECTL') {
+        sh """curl -k -L http://xxxx/eservices/sources/docker-client/kubectl-1.8.zip -o /home/jenkins/.jenkins/workspace/kube_etl/kubectl.zip && unzip -o /home/jenkins/.jenkins/workspace/kube_etl/kubectl.zip && chmod +x ./kubectl"""
+}
+stage('KUBE_DEPLOY') {
+        sh '''sh kube/kube-deploy.sh ''' 
+}
+		    }
+	}	}
+}
 ```
