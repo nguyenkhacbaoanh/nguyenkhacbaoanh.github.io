@@ -87,7 +87,8 @@ Structuration du projet:
 
 This APIs utilise asynchro technique pour recuperer le resultat sur les task qui dure longtemps en generale, une fois le job a ete submit sur APIs, les playbooks ansible vont jouer des commandlines sur des servers specifiques, ca va prendre de deux a 5 minutes, ca depends la bande passante du reseau.
 
-```python UUID.py
+```python
+#UUID.py
 from flask import Flask,jsonify, g
 from datetime import datetime, timedelta
 from flask_restplus import Namespace, Resource, fields, marshal
@@ -137,7 +138,8 @@ class Job(Resource):
 
 Some examples of Api methods
 
-```python informatica.py
+```python
+#informatica.py
 from flask import jsonify, g
 from datetime import datetime, timedelta
 from flask_restplus import Namespace, fields, reqparse, marshal
@@ -728,7 +730,7 @@ class kill_instance_session(DecoratedResource):
                       "expired": token.is_expired()}
         return token_info
 
-""" tri_search() function returns True only when 
+""" tri_search() function returns True only when
 trigram entered in API is in ADGroup list of client id.
 input: cloud_res, trigram
 output: True/False"""
@@ -759,6 +761,7 @@ def parsetoken():
 ```
 
 ## Swagger SG
+
 API doit etre conform au norm API chez Societe Generale
 
 on s'installe le swagger submodule de la SG
@@ -803,8 +806,9 @@ kubectl create -f /code/ETLaaS_GCR_async/kube/secret-env.yml --namespace ns-xxx-
 ```
 
 Docker local:
+
 ```yml
-version: "3.1"
+version: '3.1'
 services:
   celery_worker:
     image: etlaas:${BUILD_NUMBER}
@@ -816,8 +820,8 @@ services:
     deploy:
       replicas: 2
       labels:
-        - "com.docker.ucp.access.label=/Run/xxxx"
-        - "com.docker.ucp.access.owner=xxxx"
+        - 'com.docker.ucp.access.label=/Run/xxxx'
+        - 'com.docker.ucp.access.owner=xxxx'
     environment:
       - DNSNAME=xxxx
     env_file:
@@ -858,8 +862,8 @@ services:
     deploy:
       replicas: 2
       labels:
-        - "com.docker.ucp.access.label=/Run/xxxx"
-        - "com.docker.ucp.access.owner=xxxx"
+        - 'com.docker.ucp.access.label=/Run/xxxx'
+        - 'com.docker.ucp.access.owner=xxxx'
     environment:
       - DNSNAME=etlaas-gcr
 
@@ -910,8 +914,11 @@ secrets:
   private_key:
     external: true
 ```
+
 Kubernetes:
-```bash kube-deploy.sh
+
+```bash
+#kube-deploy.sh
 #redis deployment
 ./kubectl create -f kube/redis/redis-deployment.yml --namespace ns-xxx-dev-ssa
 #redis service
@@ -932,22 +939,23 @@ Kubernetes:
 
 Pour la partie CICD, l'implementation de scripts Jenkinsfile sur Jenkins Instance avec le webhook de pull-resquest sur le repository
 
-```groovy Jenkinfile
+```groovy
+// Jenkinfile
 dockerNode(image: 'maven-ezweb-builder:3.3.9-jdk-1.8.0.121-node-9.5.0') {
 //Environment properties to build and releae application modules
 withEnv(['DOCKER_HOST=tcp://xxx:443',
-         'UCP_URL=https://xxx', 
-	 'DOCKER_TLS_VERIFY=1', 
-	 'DOCKER_CERT_PATH=/home/jenkins', 
+         'UCP_URL=https://xxx',
+	 'DOCKER_TLS_VERIFY=1',
+	 'DOCKER_CERT_PATH=/home/jenkins',
 	 'UCP_credentialsId=UCP_Credentials']) {
 
 //Credentials to connect with docker services
-withCredentials([[$class: 'UsernamePasswordMultiBinding', 
-		credentialsId: "$UCP_credentialsId", 
-		usernameVariable: 'USER', 
+withCredentials([[$class: 'UsernamePasswordMultiBinding',
+		credentialsId: "$UCP_credentialsId",
+		usernameVariable: 'USER',
 		passwordVariable: 'PASSWORD']]) {
 		    withCredentials([file(credentialsId: 'e2s_dev_svc-kube.yml', variable: 'KUBECONFIG')]){
-//fetching ucp certs for deployments 
+//fetching ucp certs for deployments
 	sh '''AUTHTOKEN=$(curl -sk -d "{\\"username\\":\\"$USER\\",\\"password\\":\\"$PASSWORD\\"}" $UCP_URL/auth/login | jq -r .auth_token)
     	curl -k -H "Authorization: Bearer $AUTHTOKEN" $UCP_URL/api/clientbundle -o $HOME/bundle.zip
     	unzip -o $HOME/bundle.zip -d $HOME'''
@@ -959,13 +967,13 @@ stage('GIT-CLONE') {
 	}
 stage('BUILD_IMAGE') {
         sh """docker build -f dockers/ETLaaS_async/Dockerfile --tag etlaas:etlaas-kube --force-rm --no-cache .; docker push etlaas:etlaas-kube"""
-    
+
     }
 stage('KUBECTL') {
         sh """curl -k -L http://xxxx/eservices/sources/docker-client/kubectl-1.8.zip -o /home/jenkins/.jenkins/workspace/kube_etl/kubectl.zip && unzip -o /home/jenkins/.jenkins/workspace/kube_etl/kubectl.zip && chmod +x ./kubectl"""
 }
 stage('KUBE_DEPLOY') {
-        sh '''sh kube/kube-deploy.sh ''' 
+        sh '''sh kube/kube-deploy.sh '''
 }
 		    }
 	}	}
