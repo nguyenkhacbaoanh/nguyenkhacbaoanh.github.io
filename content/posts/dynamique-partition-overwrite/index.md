@@ -1,8 +1,8 @@
 ---
-title: Markdown Test File
-description: abc234
-date: 2019-12-07
-draft: true
+title: Spark - Dynamique partition overwrite data
+description: Overwrite data par partition.
+date: 2021-06-04
+draft: false
 slug: /pensieve/markdown-playground
 tags:
   - Testing
