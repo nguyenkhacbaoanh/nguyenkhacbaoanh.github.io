@@ -10,7 +10,7 @@ tags:
   - scala
 ---
 
-![Image Alt](./image.jpg)
+![Image Alt](./Non-dynamique-overwrite-partition.png)
 
 Quand -t-on essaie d'utiliser dynamique partition mode pour écrire des données avec ces deux methods:
 
@@ -35,3 +35,5 @@ sparkSession.conf.set("spark.sql.sources.commitProtocolClass","org.apache.spark.
 
 sparkSession.conf.set("spark.cloudera.s3_committers.enabled", "false")
 ```
+
+![Image](./Dynamique-overwrite-partition.png)
