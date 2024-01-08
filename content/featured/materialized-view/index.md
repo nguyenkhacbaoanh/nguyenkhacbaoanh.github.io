@@ -1,5 +1,5 @@
 ---
-date: '2'
+date: '3'
 title: 'Build a Data Product'
 cover: './demo.png'
 external: '/pensieve/materialized-view'
