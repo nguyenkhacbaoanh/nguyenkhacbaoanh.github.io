@@ -1,13 +1,13 @@
 ---
-date: '2021-05-02'
-title: 'Continuous Integration & Continuous Delivery pour data pipeline en Scala/Spark'
+date: '2022-09-30'
+title: 'BI Data Contract'
 github: ''
-external: '/pensieve/cicd/'
+external: '/pensieve/data-contract/'
 tech:
-  - Maven
-  - Ansible
-  - Github
-  - Jenkins
+  - dbt
+  - trino
+  - sqlserver
+  - audit
 company: 'Societe Generale'
 showInProjects: true
 ---
