@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
-Sitemap: https://nguyenkhacbaoanh.github.io/sitemap.xml
+Sitemap: https://nguyenkhacbaoanh.github.io/sitemap-index.xml
 Host: https://nguyenkhacbaoanh.github.io
