@@ -303,7 +303,7 @@ const Projects = () => {
       </ul>
 
       <button className="more-button" onClick={() => setShowMore(!showMore)}>
-        Show {showMore ? 'Less' : 'More'}
+        {showMore ? 'En plus' : 'En moins'}
       </button>
     </StyledProjectsSection>
   );

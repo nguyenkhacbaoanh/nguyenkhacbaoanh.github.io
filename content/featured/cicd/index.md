@@ -1,5 +1,5 @@
 ---
-date: '4'
+date: '5'
 title: 'Continuous Integration & Continuous Delivery'
 cover: './cicd-scala.png'
 github: ''

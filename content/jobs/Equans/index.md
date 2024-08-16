@@ -11,7 +11,7 @@ Dans le cadre de l’équipe BI, intégrée au sein de la DSI EQUANS France, de 
 
 - Intégrer l’équipe BI et travailler en collaboration avec tous les membres (Agile Scrum) pour assurer une bonne communication entre l'équipe de développement et le Product Owners.
 - Accompagner les Développeurs Junior.
-- Assurer la qualité technique des développements dans Palantir
+- Assurer la qualité technique des développements dans [Palantir](https://www.palantir.com/platforms/foundry/)
 - Assurer la communication avec les administrateurs de la plateforme Palantir
 - Proposer les architectures techniques adéquates pour assurer la fiabilité des flux de données et faciliter leur maintenance
 - Réaliser les demandes de développement d’intégration de données dans Palantir
