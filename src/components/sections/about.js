@@ -142,6 +142,7 @@ const About = () => {
     'AWS Glue',
     'AWS S3',
     'AWS EMR',
+    'Palantir Foundry',
   ];
 
   return (
