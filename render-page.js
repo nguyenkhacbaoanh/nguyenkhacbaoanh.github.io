@@ -14095,24 +14095,24 @@ function v(){return(v=Object.assign||function(e){for(var t=1;t<arguments.length;
 /***/ }),
 
 /***/ "react-dom/server":
-/*!*********************************************************************************!*\
-  !*** external "/Users/nguyen/Anh/dev/blog_cv/node_modules/react-dom/server.js" ***!
-  \*********************************************************************************/
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("/Users/nguyen/Anh/dev/blog_cv/node_modules/react-dom/server.js");;
-
-/***/ }),
-
-/***/ "react":
 /*!****************************************************************************!*\
-  !*** external "/Users/nguyen/Anh/dev/blog_cv/node_modules/react/index.js" ***!
+  !*** external "/Users/nguyen/Anh/dev/v4/node_modules/react-dom/server.js" ***!
   \****************************************************************************/
 /***/ ((module) => {
 
 "use strict";
-module.exports = require("/Users/nguyen/Anh/dev/blog_cv/node_modules/react/index.js");;
+module.exports = require("/Users/nguyen/Anh/dev/v4/node_modules/react-dom/server.js");;
+
+/***/ }),
+
+/***/ "react":
+/*!***********************************************************************!*\
+  !*** external "/Users/nguyen/Anh/dev/v4/node_modules/react/index.js" ***!
+  \***********************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("/Users/nguyen/Anh/dev/v4/node_modules/react/index.js");;
 
 /***/ }),
 
