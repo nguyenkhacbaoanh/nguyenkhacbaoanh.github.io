@@ -9,3 +9,5 @@ tags:
   - ansible
   - jenkins
 ---
+
+![CICD Architecture](../../featured/cicd/CICD-Cloudera.png 'architecture')
